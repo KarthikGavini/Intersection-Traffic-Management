@@ -1,0 +1,17 @@
+client/node_modules
+
+poc/venv
+
+python-service/venv
+python-service/best.pt
+python-service/yolov8n.pt
+python-service/east_cam.mp4
+python-service/south_cam.mp4
+python-service/west_cam.mp4
+python-service/north_cam.mp4
+python-service/test.mp4
+
+server/node_modules
+server/.env
+
+.DS_Store
