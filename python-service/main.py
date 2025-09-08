@@ -72,7 +72,7 @@ def process_camera_feed(camera_config):
         confidence_threshold=0.3, device=device
     )
 
-    cap = cv2.VideoCapture(video_source)
+    cap = cv2.VideoCapture("videos/"+video_source)
     if not cap.isOpened():
         print(f"[{camera_name}] Error: Could not open video source.")
         return

@@ -10,6 +10,7 @@ python-service/south_cam.mp4
 python-service/west_cam.mp4
 python-service/north_cam.mp4
 python-service/test.mp4
+python-service/videos
 
 server/node_modules
 server/.env

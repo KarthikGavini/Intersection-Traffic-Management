@@ -7,6 +7,7 @@ import { Server } from 'socket.io'; // <-- 2. Import Server from socket.io
 
 import connectDB from './db.js';
 import intersectionRoutes from './routes/intersections.js';
+import videoStreamRouter from './routes/videoStream.js';
 
 connectDB();
 
@@ -47,6 +48,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api/intersections', intersectionRoutes); 
+app.use('/api/videos', videoStreamRouter);
 
 // --- 6. Start the server using the httpServer instance ---
 httpServer.listen(PORT, () => {
