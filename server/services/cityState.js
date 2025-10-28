@@ -19,6 +19,7 @@ const createNodeState = (name, isSimulated = false, startDensities = {}) => ({
   densities: isSimulated 
     ? { 'North': 10, 'South': 20, 'East': 5, 'West': 30 }
     : { 'North': 0, 'South': 0, 'East': 0, 'West': 0 },
+  pollutionScores: { 'North': 0, 'South': 0, 'East': 0, 'West': 0 },
   frames: { 'North': null, 'South': null, 'East': null, 'West': null },
   currentLaneIndex: 0,
   currentLightState: 'RED', // RED, GREEN, or YELLOW

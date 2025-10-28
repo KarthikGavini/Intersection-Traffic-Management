@@ -1,2 +1,50 @@
 @import "tailwindcss";
 
+/* Animation for the "real" node */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.7); /* cyan-600 */
+  }
+  70% {
+    box-shadow: 0 0 0 20px rgba(6, 182, 212, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0);
+  }
+}
+
+/* Force our markers to be on top */
+.leaflet-pane .leaflet-marker-pane {
+  z-index: 650 !important;
+}
+.leaflet-pane .leaflet-popup-pane {
+  z-index: 700 !important;
+}
+
+/* Base style for custom Leaflet DivIcons */
+.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Style for the "real" node marker (pulsating) */
+.real-marker {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #06b6d4; /* cyan-600 */
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 rgba(6, 182, 212, 0.7);
+  animation: pulse 2s infinite;
+  cursor: pointer;
+}
+
+/* Style for the "simulated" node marker (static) */
+.simulated-marker {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #f59e0b; /* amber-500 */
+  border: 2px solid #ffffff;
+  cursor: pointer;
+}

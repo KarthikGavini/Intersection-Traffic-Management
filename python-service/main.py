@@ -19,6 +19,17 @@ INTERSECTION_ID = "68bf113329a3d66abae0fd7c"
 # ALLOWED_CLASSES = ['car', 'motorcycle', 'bus', 'truck', 'bicycle']
 ALLOWED_CLASSES = ['lmv', 'motorbike', 'bus', 'truck', 'autorickshaw', 'lcv', 'tractor']
 PROCESSING_INTERVAL = 5
+
+POLLUTION_WEIGHTS = {
+    'truck': 10,
+    'bus': 8,
+    'lcv': 6,
+    'autorickshaw': 5,
+    'tractor': 5,
+    'lmv': 3,
+    'motorbike': 1,
+}
+
 SLICE_HEIGHT = 640
 SLICE_WIDTH = 640
 
@@ -95,6 +106,8 @@ def process_camera_feed(camera_config):
             height, width, _ = frame.shape
             frame_densities = {}
 
+            total_pollution_score_for_camera = 0
+
             result = get_sliced_prediction(
                 frame, detection_model,
                 slice_height=SLICE_HEIGHT, slice_width=SLICE_WIDTH,
@@ -105,6 +118,14 @@ def process_camera_feed(camera_config):
             for lane_name, points in lane_polygons.items():
                 current_roi_polygon = np.array(points, np.int32)
                 roi_area = cv2.contourArea(current_roi_polygon)
+
+                predictions_in_roi = [
+                    p for p in filtered_predictions
+                    if cv2.pointPolygonTest(current_roi_polygon, (int((p.bbox.minx + p.bbox.maxx) / 2), int((p.bbox.miny + p.bbox.maxy) / 2)), False) >= 0
+                ]
+
+                current_lane_pollution = sum(POLLUTION_WEIGHTS.get(p.category.name, 0) for p in predictions_in_roi)
+                total_pollution_score_for_camera += current_lane_pollution
                 
                 bboxes_in_roi = [
                     [int(p.bbox.minx), int(p.bbox.miny), int(p.bbox.maxx), int(p.bbox.maxy)]
@@ -151,6 +172,7 @@ def process_camera_feed(camera_config):
                 "densities": frame_densities,
                 "priorityLane": priority_lane,
                 "annotatedFrame": frame_as_base64, # Temporarily disabled to reduce load
+                "pollutionScore": total_pollution_score_for_camera,
             }
             send_data_to_server(payload)
 
