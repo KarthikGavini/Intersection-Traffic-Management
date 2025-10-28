@@ -63,16 +63,18 @@ def send_data_to_server(payload):
     except requests.exceptions.RequestException:
         pass
 
-# --- WORKER: This function contains all your original analysis logic ---
+
 def process_camera_feed(camera_config):
     """This is the main worker function for a single camera."""
-    
+
+    rois = camera_config.get('rois', [])
     camera_name = camera_config.get('name', 'Unknown')
     video_source = camera_config.get('videoSource', '')
-    lane_polygons = camera_config.get('roiPolygons', {})
-
-    if not video_source or not lane_polygons:
-        print(f"[{camera_name}] Error: Missing videoSource or roiPolygons in config.")
+    # We no longer need lane_polygons
+    # lane_polygons = camera_config.get('roiPolygons', {}) 
+    
+    if not video_source or not rois or len(rois) == 0: # Make sure rois is not empty
+        print(f"[{camera_name}] Error: Missing videoSource or valid rois in config.")
         return
 
     device = "mps" if torch.backends.mps.is_available() else "cpu"
@@ -105,8 +107,9 @@ def process_camera_feed(camera_config):
             
             height, width, _ = frame.shape
             frame_densities = {}
-
-            total_pollution_score_for_camera = 0
+            frame_pollution = {}
+            pedestrian_waiting = False
+            # We don't need this variable: total_pollution_score_for_camera = 0
 
             result = get_sliced_prediction(
                 frame, detection_model,
@@ -115,66 +118,93 @@ def process_camera_feed(camera_config):
             )
             filtered_predictions = [p for p in result.object_prediction_list if p.category.name in ALLOWED_CLASSES]
 
-            for lane_name, points in lane_polygons.items():
-                current_roi_polygon = np.array(points, np.int32)
-                roi_area = cv2.contourArea(current_roi_polygon)
+            person_predictions = [
+                p for p in result.object_prediction_list 
+                if p.category.name == 'person'
+            ]
 
-                predictions_in_roi = [
-                    p for p in filtered_predictions
-                    if cv2.pointPolygonTest(current_roi_polygon, (int((p.bbox.minx + p.bbox.maxx) / 2), int((p.bbox.miny + p.bbox.maxy) / 2)), False) >= 0
-                ]
-
-                current_lane_pollution = sum(POLLUTION_WEIGHTS.get(p.category.name, 0) for p in predictions_in_roi)
-                total_pollution_score_for_camera += current_lane_pollution
-                
-                bboxes_in_roi = [
-                    [int(p.bbox.minx), int(p.bbox.miny), int(p.bbox.maxx), int(p.bbox.maxy)]
-                    for p in filtered_predictions
-                    if cv2.pointPolygonTest(current_roi_polygon, (int((p.bbox.minx + p.bbox.maxx) / 2), int((p.bbox.miny + p.bbox.maxy) / 2)), False) >= 0
-                ]
-
-                bbox_mask = np.zeros((height, width), dtype=np.uint8)
-                for bbox in bboxes_in_roi:
-                    cv2.rectangle(bbox_mask, (bbox[0], bbox[1]), (bbox[2], bbox[3]), 255, -1)
-                
-                roi_mask = np.zeros((height, width), dtype=np.uint8)
-                cv2.fillPoly(roi_mask, [current_roi_polygon], 255)
-
-                occupied_area_mask = cv2.bitwise_and(bbox_mask, roi_mask)
-                density = (cv2.countNonZero(occupied_area_mask) / roi_area) * 100 if roi_area > 0 else 0
-                frame_densities[lane_name] = density
-            
-            priority_lane = max(frame_densities, key=frame_densities.get) if frame_densities else ""
-            
-            # Note: Creating and sending annotated frames for 4 streams can be heavy.
-            # A more optimized version might only send the density data.
-            # For now, we'll keep it for visual confirmation.
-
-            # --- ADD THIS LOGIC BACK IN ---
-            # Create a visual frame to send to the frontend
             annotated_frame_for_payload = frame.copy()
-            for lane_name, points in lane_polygons.items():
-                current_roi_polygon = np.array(points, np.int32)
-                cv2.polylines(annotated_frame_for_payload, [current_roi_polygon], True, (255, 0, 0), 3)
-                density = frame_densities.get(lane_name, 0)
-                density_text = f"{lane_name}: {density:.2f}%"
-                text_pos = (points[0][0], points[0][1] - 10)
-                cv2.putText(annotated_frame_for_payload, density_text, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 4)
-                cv2.putText(annotated_frame_for_payload, density_text, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
-            # Encode the annotated frame as a Base64 string
+            # --- 5. THE MAIN LOGIC CHANGE (NOW INDENTED) ---
+            # Loop over the new 'rois' array
+            for roi in rois:
+                roi_name = roi.get('name')
+                roi_type = roi.get('type')
+                roi_points = roi.get('points')
+
+                if not roi_name or not roi_type or not roi_points:
+                    continue 
+
+                current_roi_polygon = np.array(roi_points, np.int32)
+
+                # --- A: If it's a 'Traffic' ROI, do density/pollution ---
+                if roi_type == 'Traffic':
+                    roi_area = cv2.contourArea(current_roi_polygon)
+                    if roi_area == 0: continue # Avoid division by zero
+
+                    predictions_in_roi = [
+                        p for p in filtered_predictions
+                        if cv2.pointPolygonTest(current_roi_polygon, (int((p.bbox.minx + p.bbox.maxx) / 2), int((p.bbox.miny + p.bbox.maxy) / 2)), False) >= 0
+                    ]
+
+                    current_lane_pollution = sum(POLLUTION_WEIGHTS.get(p.category.name, 0) for p in predictions_in_roi)
+                    frame_pollution[roi_name] = current_lane_pollution
+
+                    bboxes_in_roi = [[int(p.bbox.minx), int(p.bbox.miny), int(p.bbox.maxx), int(p.bbox.maxy)] for p in predictions_in_roi]
+
+                    bbox_mask = np.zeros((height, width), dtype=np.uint8)
+                    for bbox in bboxes_in_roi:
+                        cv2.rectangle(bbox_mask, (bbox[0], bbox[1]), (bbox[2], bbox[3]), 255, -1)
+
+                    roi_mask = np.zeros((height, width), dtype=np.uint8)
+                    cv2.fillPoly(roi_mask, [current_roi_polygon], 255)
+
+                    occupied_area_mask = cv2.bitwise_and(bbox_mask, roi_mask)
+                    density = (cv2.countNonZero(occupied_area_mask) / roi_area) * 100
+                    frame_densities[roi_name] = density
+
+                    # Draw on frame
+                    cv2.polylines(annotated_frame_for_payload, [current_roi_polygon], True, (255, 0, 0), 3) # Blue
+                    density_text = f"{roi_name}: {density:.1f}%"
+                    text_pos = (roi_points[0][0], roi_points[0][1] - 10)
+                    cv2.putText(annotated_frame_for_payload, density_text, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 3)
+                    cv2.putText(annotated_frame_for_payload, density_text, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+                # --- B: If it's a 'Pedestrian' ROI, check for people ---
+                elif roi_type == 'Pedestrian':
+                    people_in_roi = [
+                        p for p in person_predictions
+                        if cv2.pointPolygonTest(current_roi_polygon, (int((p.bbox.minx + p.bbox.maxx) / 2), int(p.bbox.miny)), False) >= 0
+                    ]
+
+                    num_people = len(people_in_roi)
+                    if num_people > 0:
+                        pedestrian_waiting = True
+
+                    color = (0, 0, 255) if num_people > 0 else (0, 255, 0) # Red/Green
+                    cv2.polylines(annotated_frame_for_payload, [current_roi_polygon], True, color, 3)
+                    text = f"{roi_name}: {num_people} waiting"
+                    text_pos = (roi_points[0][0], roi_points[0][1] - 10)
+                    cv2.putText(annotated_frame_for_payload, text, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 3)
+                    cv2.putText(annotated_frame_for_payload, text, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+
+            # --- 6. UPDATE THE PAYLOAD (STILL INDENTED) ---
+            first_traffic_density = list(frame_densities.values())[0] if frame_densities else 0
+            total_pollution = sum(frame_pollution.values())
+
             _, buffer = cv2.imencode('.jpg', annotated_frame_for_payload)
             frame_as_base64 = base64.b64encode(buffer).decode('utf-8')
-            # --- END OF ADDED LOGIC ---
-            
+
             payload = {
                 "cameraName": camera_name,
-                "densities": frame_densities,
-                "priorityLane": priority_lane,
-                "annotatedFrame": frame_as_base64, # Temporarily disabled to reduce load
-                "pollutionScore": total_pollution_score_for_camera,
+                "densities": { "default": first_traffic_density }, 
+                "annotatedFrame": frame_as_base64,
+                "pollutionScore": total_pollution,
+                "pedestrianWaiting": pedestrian_waiting
             }
             send_data_to_server(payload)
+
+# ... (rest of the file is correct) ...
 
 
 # --- MANAGER: This is the main entry point ---

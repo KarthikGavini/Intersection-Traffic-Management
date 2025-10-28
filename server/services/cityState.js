@@ -1,4 +1,5 @@
 // server/services/cityState.js
+import Intersection from '../models/Intersection.js';
 
 // --- Configuration Constants ---
 export const LANE_SEQUENCE = ['North', 'East', 'South', 'West'];
@@ -21,6 +22,9 @@ const createNodeState = (name, isSimulated = false, startDensities = {}) => ({
     : { 'North': 0, 'South': 0, 'East': 0, 'West': 0 },
   pollutionScores: { 'North': 0, 'South': 0, 'East': 0, 'West': 0 },
   frames: { 'North': null, 'South': null, 'East': null, 'West': null },
+  pedestrianWaiting: { 'North': false, 'South': false, 'East': false, 'West': false },
+  isPedestrianPhase: false,
+  cameraDbIds: { 'North': null, 'South': null, 'East': null, 'West': null },
   currentLaneIndex: 0,
   currentLightState: 'RED', // RED, GREEN, or YELLOW
   stateChangeTime: Date.now(),
@@ -51,3 +55,34 @@ export const cityLayout = {
     'West': { destNode: "sim-node-2", destLane: 'East' }
   }
 };
+
+/**
+ * Fetches the real intersection from the DB and populates
+ * the cameraDbIds for our real node in the cityState.
+ */
+export async function populateRealNodeCameraIds() {
+  console.log('[Startup] Fetching real camera IDs from database...');
+  try {
+    const realNode = cityState[REAL_INTERSECTION_ID];
+    if (!realNode) {
+      console.error('[Startup] Real node not found in cityState!');
+      return;
+    }
+
+    const intersection = await Intersection.findById(REAL_INTERSECTION_ID).populate('cameras');
+    if (!intersection) {
+      console.error(`[Startup] Intersection ${REAL_INTERSECTION_ID} not found in DB!`);
+      return;
+    }
+
+    // Loop over the cameras from the DB and map their names to their IDs
+    for (const camera of intersection.cameras) {
+      if (realNode.cameraDbIds.hasOwnProperty(camera.name)) {
+        realNode.cameraDbIds[camera.name] = camera._id.toString();
+        console.log(`[Startup] Mapped ${camera.name} to ${camera._id}`);
+      }
+    }
+  } catch (err) {
+    console.error('[Startup] Error populating camera IDs:', err.message);
+  }
+}

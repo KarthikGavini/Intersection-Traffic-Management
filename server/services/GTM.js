@@ -1,6 +1,6 @@
 // server/services/GTM.js
 
-import { cityState } from './cityState.js';
+import { cityState, cityLayout } from './cityState.js';
 import { updateLocalIntersectionLogic } from './localLogic.js';
 import { simulateCityFlow } from './simulation.js';
 
@@ -17,7 +17,8 @@ export function runGlobalTrafficManager(io) {
   // 2. Run the local light logic for *every* intersection
   for (const intersectionId in cityState) {
     const nodeState = cityState[intersectionId];
-    updateLocalIntersectionLogic(nodeState); // This function updates the state in-place
+    // updateLocalIntersectionLogic(nodeState); // This function updates the state in-place
+    updateLocalIntersectionLogic(intersectionId, nodeState, cityState, cityLayout);
     
     // 3. Broadcast the *specific* state to the *specific* room
     io.to(intersectionId).emit('state-update', nodeState);

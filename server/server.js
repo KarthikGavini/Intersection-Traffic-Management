@@ -67,6 +67,8 @@ import connectDB from './db.js';
 import intersectionRoutes from './routes/intersections.js';
 import videoStreamRouter from './routes/videoStream.js';
 import { initializeGTM } from './services/GTM.js'; // <-- IMPORT THE GTM
+import cameraRoutes from './routes/cameras.js';
+import { populateRealNodeCameraIds } from './services/cityState.js';
 
 connectDB();
 
@@ -119,12 +121,30 @@ app.get('/', (req, res) => {
 });
 app.use('/api/intersections', intersectionRoutes); 
 app.use('/api/videos', videoStreamRouter);
+app.use('/api/cameras', cameraRoutes);
 
-// --- 5. Start the server ---
-httpServer.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
-});
+// // --- 5. Start the server ---
+// httpServer.listen(PORT, () => {
+//   console.log(`Server listening on port ${PORT}`);
+// });
 
-// --- 6. NEW: Start the Global Traffic Manager (GTM) ---
-// We pass 'io' to the GTM so it can broadcast updates
-initializeGTM(io);
+// // --- 6. NEW: Start the Global Traffic Manager (GTM) ---
+// // We pass 'io' to the GTM so it can broadcast updates
+// initializeGTM(io);
+
+async function startServer() {
+  console.log('Server starting...');
+  
+  // --- 2. ADD THIS ---
+  // Wait for the DB to give us the camera IDs before we start
+  await populateRealNodeCameraIds(); 
+  
+  httpServer.listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
+  });
+
+  // --- 3. This stays the same ---
+  initializeGTM(io);
+}
+
+startServer();
