@@ -11,6 +11,9 @@ python-service/west_cam.mp4
 python-service/north_cam.mp4
 python-service/test.mp4
 python-service/videos
+python-service/videos.zip
+python-service/models
+
 
 server/node_modules
 server/.env

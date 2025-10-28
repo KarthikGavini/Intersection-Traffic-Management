@@ -16,8 +16,8 @@ from sahi.predict import get_sliced_prediction
 SERVER_URL = "http://localhost:5001/api/intersections"
 # This should be the ID of the main "Intersection" document in your database
 INTERSECTION_ID = "68bf113329a3d66abae0fd7c" 
-ALLOWED_CLASSES = ['car', 'motorcycle', 'bus', 'truck', 'bicycle']
-# ALLOWED_CLASSES = ['lmv', 'motorbike', 'bus', 'truck', 'autorickshaw', 'lcv', 'tractor']
+# ALLOWED_CLASSES = ['car', 'motorcycle', 'bus', 'truck', 'bicycle']
+ALLOWED_CLASSES = ['lmv', 'motorbike', 'bus', 'truck', 'autorickshaw', 'lcv', 'tractor']
 PROCESSING_INTERVAL = 5
 SLICE_HEIGHT = 640
 SLICE_WIDTH = 640
@@ -68,7 +68,7 @@ def process_camera_feed(camera_config):
     print(f"[{camera_name}] Worker started. Device: {device}, Source: {video_source}")
 
     detection_model = AutoDetectionModel.from_pretrained(
-        model_type='yolov8', model_path='yolov8n.pt',
+        model_type='yolov8', model_path='models/bestn.pt',
         confidence_threshold=0.3, device=device
     )
 

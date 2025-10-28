@@ -1,0 +1,7 @@
+opencv-python
+numpy
+requests
+torch
+sahi
+python-socketio
+pyserial
