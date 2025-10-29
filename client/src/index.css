@@ -48,3 +48,34 @@
   border: 2px solid #ffffff;
   cursor: pointer;
 }
+
+/* Dark theme for react-datetime-picker */
+.dark-theme-datetime-picker .react-datetime-picker__wrapper {
+  background-color: #374151; /* gray-700 */
+  border: 1px solid #4b5563; /* gray-600 */
+  border-radius: 0.5rem;
+}
+.dark-theme-datetime-picker .react-datetime-picker__inputGroup__input {
+  color: white;
+}
+.dark-theme-datetime-picker .react-datetime-picker__calendar,
+.dark-theme-datetime-picker .react-clock {
+  background-color: #1f2937; /* gray-800 */
+  border: 1px solid #4b5563;
+  border-radius: 0.5rem;
+}
+.dark-theme-datetime-picker .react-calendar__tile--now {
+  background-color: #06b6d4; /* cyan-600 */
+}
+.dark-theme-datetime-picker .react-calendar__tile:enabled:hover,
+.dark-theme-datetime-picker .react-calendar__tile:enabled:focus {
+  background-color: #374151;
+}
+.dark-theme-datetime-picker .react-calendar__tile--active {
+  background-color: #0e7490; /* cyan-700 */
+}
+.dark-theme-datetime-picker .react-clock__face,
+.dark-theme-datetime-picker .react-clock__hand__body {
+  background-color: white;
+  border-color: white;
+}

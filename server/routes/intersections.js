@@ -1,64 +1,58 @@
-// server/routes/intersections.js (Updated)
+// server/routes/intersections.js
 
 import express from 'express';
-import { cityState, REAL_INTERSECTION_ID } from '../services/cityState.js';
+// --- This is the key: we import the REAL cityState ---
+import { cityState } from '../services/cityState.js'; 
 
-// --- 1. IMPORT THE DATABASE MODELS ---
-// We need these for the Python script's config endpoint
 import Intersection from '../models/Intersection.js';
 import Camera from '../models/Camera.js';
 
 
 const router = express.Router();
 
-// --- 2. ADDED BACK: The config endpoint for Python ---
+// --- The config endpoint for Python (This part was correct) ---
 // GET /api/intersections/:id
-// This fetches the detailed intersection data (with cameras) from the database
 router.get('/:id', async (req, res) => {
   try {
-    // We must .populate('cameras') so the python script gets the camera details
     const intersection = await Intersection.findById(req.params.id).populate('cameras');
-    
     if (!intersection) {
       return res.status(404).json({ msg: 'Intersection not found in database' });
     }
-    // This sends the full config (ROIs, video sources, etc.) to main.py
     res.json(intersection); 
-
-  } catch (err)
-  {
+  } catch (err) {
     console.error("Error fetching intersection config:", err.message);
     res.status(500).send('Server Error');
   }
 });
 
 
-// --- 3. KEPT: The "city map" endpoint for React ---
+// --- THIS IS THE FIX ---
 // GET /api/intersections/
 // This provides the list of intersections for the map view
 router.get('/', (req, res) => {
+  // This logic now CORRECTLY reads from the imported 20-node cityState
   const mapData = Object.entries(cityState).map(([id, state]) => ({
     id: id,
     name: state.name,
     isSimulated: state.isSimulated,
-    position: (id === REAL_INTERSECTION_ID) 
-      ? [16.30, 80.43] // Real node position
-      : (id === 'sim-node-1' ? [16.31, 80.44] : [16.30, 80.42]) // Sim node positions
+    position: state.position // <-- It now gets the REAL position from the state
   }));
   res.json(mapData);
 });
+// -----------------------
 
 
-// --- 4. KEPT: The data-in endpoint for Python ---
+// --- The data-in endpoint for Python (This part was correct) ---
 // POST /api/intersections/:id/data
-// This endpoint receives data for the real node
 router.post('/:id/data', (req, res) => {
   const { id } = req.params;
   const { cameraName, densities, annotatedFrame, pollutionScore, pedestrianWaiting } = req.body;
 
+  // Find the 'real' ID from the cityState object
+  const realId = Object.keys(cityState).find(id => !cityState[id].isSimulated);
   const nodeState = cityState[id];
 
-  if (nodeState && id === REAL_INTERSECTION_ID) {
+  if (nodeState && id === realId) {
     if (cameraName && nodeState.densities.hasOwnProperty(cameraName)) {
       const densityValues = densities ? Object.values(densities) : [];
       nodeState.densities[cameraName] = densityValues.length > 0 ? densityValues[0] : 0;
