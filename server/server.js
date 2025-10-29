@@ -4,6 +4,8 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import path from 'path'; 
+import { fileURLToPath } from 'url';
 
 import connectDB from './db.js';
 import intersectionRoutes from './routes/intersections.js';
@@ -12,6 +14,10 @@ import { initializeGTM } from './services/GTM.js'; //
 import cameraRoutes from './routes/cameras.js';
 import { populateRealNodeCameraIds } from './services/cityState.js';
 import scheduledRoutes from './routes/scheduledRoutes.js';
+import violationRoutes from './routes/violations.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 connectDB();
 
@@ -32,6 +38,7 @@ const io = new Server(httpServer, {
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use('/violation-cars', express.static(path.join(__dirname, '../python-service/violation-cars')));
 
 // --- 3. Socket.IO connection listener (UPDATED) ---
 io.on('connection', (socket) => {
@@ -66,6 +73,7 @@ app.use('/api/intersections', intersectionRoutes);
 app.use('/api/videos', videoStreamRouter);
 app.use('/api/cameras', cameraRoutes);
 app.use('/api/routes', scheduledRoutes);
+app.use('/api/violations', violationRoutes);
 
 async function startServer() {
   console.log('Server starting...');
